@@ -4,3 +4,9 @@
 .vscode/
 .cache/
 CMakeUserPresets.json
+x64/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.slnx
+*.sln
