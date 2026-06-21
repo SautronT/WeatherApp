@@ -39,7 +39,7 @@ TEST_CASE("WeatherData - parsing JSON valide", "[WeatherData]")
 TEST_CASE("WeatherData - missing information returns nullopt", "[WeatherData]")
 {
     const std::string MISSING_FIELD_JSON = R"({
-        "weather": [{"id": 804, "main": "Clouds", "description": "overcast clouds", "icon": "04d"}],
+        "weather": [{"id": 804, "main": "Clouds", "description": "ciel couvert", "icon": "04d"}],
         "main": {
             "temp": 29.82,
             "feels_like": 30.79,
