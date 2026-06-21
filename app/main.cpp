@@ -16,44 +16,44 @@
 
 using namespace WeatherEngine;
 
-const std::vector<std::string> cities = {
-    "Paris", "Lyon", "Marseille", "Bordeaux",
-    "Lille", "Toulouse", "Nantes", "Strasbourg"
-};
-
 int main()
 {
 
-  int cityIndex = 0;
+  std::string inputCity = "Paris";
   std::optional<WeatherData> currentWeatherData = std::nullopt;
-  int previousCityIndex = -1;
 
   // Threading 
   std::mutex weatherMutex;
   std::future<std::optional<WeatherData>> weatherFuture;
   bool isLoading = false;
+  bool hasRequestedOnce = false;
 
   WeatherService service = WeatherService(std::make_unique<RequestWeatherEngine>());
   
   auto screen = ftxui::ScreenInteractive::Fullscreen();
+  
+  auto cityInput = ftxui::Input(&inputCity, "Entrer le nom de la ville ..." , ftxui::InputOption
+  {
 
-  auto menu = ftxui::Menu(&cities, &cityIndex);
+        .multiline = false,    
+        .on_enter = [&]{
+            if (isLoading || inputCity.empty()) return;
+            
+            isLoading = true;
+            std::string city = inputCity;
+            hasRequestedOnce = true; 
+            weatherFuture = std::async(std::launch::async, [&, city]{
+                auto result = service.cityWeatherRequest(city);
+                screen.PostEvent(ftxui::Event::Custom);
+                return result;
+            });
+        }
+    
+  });
 
-  auto container = ftxui::Container::Vertical({menu});
+  auto container = ftxui::Container::Vertical({cityInput});
 
   auto renderer = ftxui::Renderer(container, [&] {
-
-    if (cityIndex != previousCityIndex && !isLoading)
-    {
-        previousCityIndex = cityIndex; 
-        isLoading = true;
-        weatherFuture = std::async(std::launch::async, [&]{
-            auto result = service.cityWeatherRequest(cities[cityIndex]);
-            screen.PostEvent(ftxui::Event::Custom);
-            return result;
-        });
-    }
-    
 
     // Check thread is done
     if (isLoading && weatherFuture.valid())
@@ -67,68 +67,88 @@ int main()
         }
     }
 
-    // 
+    
+
+    
+    // right side panell
     ftxui::Element rightPanel;
 
     if (isLoading)
     {
-        rightPanel = ftxui::vbox({
+        rightPanel = ftxui::vbox
+        ({
             ftxui::text("Chargement...") | ftxui::bold | ftxui::center | ftxui::blink,
         }) | ftxui::flex;
     }
-    else if (!currentWeatherData.has_value())
-    {
-        rightPanel = ftxui::vbox({
-            ftxui::text("Erreur : impossible de recuperer la meteo.")
-                | ftxui::color(ftxui::Color::Red) | ftxui::center,
-        }) | ftxui::flex;
-    }
+    else if (!hasRequestedOnce)
+      {
+          rightPanel = ftxui::vbox({
+              ftxui::text("  Entrez une ville et appuyez sur Entrée.")
+                  | ftxui::color(ftxui::Color::GrayDark),
+          }) | ftxui::flex;
+      }
+      else if (!currentWeatherData.has_value())
+      {
+          rightPanel = ftxui::vbox({
+              ftxui::text("  Ville introuvable, vérifiez l'orthographe.")
+                  | ftxui::color(ftxui::Color::Red),
+          }) | ftxui::flex;
+      }    
     else
     {
         auto& weather = *currentWeatherData;
 
-        // Panneau Conditions
-        auto conditionsPanel = ftxui::vbox({
+        // conditions panel 
+        auto conditionsPanel = ftxui::vbox
+        ({
            ftxui::text(" Conditions") | ftxui::bold | ftxui::color(ftxui::Color::Green),
             ftxui::separator(),
             ftxui::text(" " + weather.weatherDescription) | ftxui::bold | ftxui::color(ftxui::Color::Cyan),
         }) | ftxui::border | ftxui::xflex;
 
-        // Panneau Temperatures
-        auto tempPanel = ftxui::vbox({
+        // temperature panel
+        auto tempPanel = ftxui::vbox
+        ({
             ftxui::text(" Temperatures") | ftxui::bold| ftxui::color(ftxui::Color::Green),
             ftxui::separator(),
-            ftxui::hbox({
+            ftxui::hbox
+            ({
                 ftxui::text("  Actuelle  ") | ftxui::color(ftxui::Color::White),
                 ftxui::text(std::format("{:.1f} C", weather.temperature)) | ftxui::bold,
             }),
-            ftxui::hbox({
+            ftxui::hbox
+            ({
                 ftxui::text("  Ressenti  ") | ftxui::color(ftxui::Color::White),
                 ftxui::text(std::format("{:.1f} C", weather.feltTemperature)),
             }),
-            ftxui::hbox({
+            ftxui::hbox
+            ({
                 ftxui::text("  Min / Max ") | ftxui::color(ftxui::Color::White),
                 ftxui::text(std::format("{:.1f} / {:.1f} C", weather.minTemperature, weather.maxTemperature)),
             }),
         }) | ftxui::border | ftxui::xflex;
 
-        // Panneau Atmospherique
-        auto atmosPanel = ftxui::vbox({
+        // ambient data panel 
+        auto atmosPanel = ftxui::vbox
+        ({
             ftxui::text(" Données ambiantes") | ftxui::bold | ftxui::color(ftxui::Color::Green),
             ftxui::separator(),
           
-            ftxui::hbox({
+            ftxui::hbox
+            ({
                 ftxui::text("  Humidité  ") | ftxui::color(ftxui::Color::White),
                 ftxui::text(std::format("{}%", weather.humidityRate)),
             }),
-            ftxui::hbox({
+            ftxui::hbox
+            ({
                 ftxui::text("  Nuages    ") | ftxui::color(ftxui::Color::White),
                 ftxui::text(std::format("{}%", weather.cloudRate)),
             }),
         }) | ftxui::border | ftxui::xflex;
 
-        rightPanel = ftxui::vbox({
-            ftxui::text(" " + cities[cityIndex]) | ftxui::bold | ftxui::color(ftxui::Color::Yellow),
+        rightPanel = ftxui::vbox
+        ({
+            ftxui::text(" " + inputCity) | ftxui::bold | ftxui::color(ftxui::Color::Yellow),
             ftxui::separator(),
             conditionsPanel,
             tempPanel,
@@ -136,21 +156,26 @@ int main()
         }) | ftxui::flex;
     }
 
-    return ftxui::vbox({
+    return ftxui::vbox
+    ({
         // Header
         ftxui::text("  Weather App") | ftxui::bold | ftxui::color(ftxui::Color::Cyan),
         ftxui::separator(),
-        // Corps
-        ftxui::hbox({
-            // Panneau gauche
-            ftxui::vbox({
-                ftxui::text(" Villes") | ftxui::bold,
+        // body 
+        ftxui::hbox
+        ({
+            ftxui::vbox
+            ({
+                ftxui::text(" Météo de la ville") | ftxui::bold,
                 ftxui::separator(),
-                menu->Render(),
+                cityInput ->Render(),
+                ftxui::separator(),
+                ftxui::text(" Appuyez sur Entree") | ftxui::color(ftxui::Color::GrayDark),
             }) | ftxui::border,
-            // Panneau droit
+            
             rightPanel,
-        }) | ftxui::flex,
+        
+            }) | ftxui::flex,
     }) | ftxui::border | ftxui::flex;
 });
     screen.Loop(renderer);
