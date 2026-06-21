@@ -26,7 +26,7 @@ TEST_CASE("WeatherData - parsing JSON valide", "[WeatherData]")
 
     CHECK(result->cityName           == "Paris");
     CHECK(result->weatherType        == "Clouds");
-    CHECK(result->weatherDescription == "overcast clouds");
+    CHECK(result->weatherDescription == "ciel couvert");
     CHECK(result->weatherIconCode    == "04d");
     CHECK(result->temperature        == 29.82);
     CHECK(result->feltTemperature    == 30.79);
